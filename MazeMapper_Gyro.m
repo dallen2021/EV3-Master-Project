@@ -21,9 +21,9 @@ WALL_TOLERANCE = 5;
 NO_WALL_THRESHOLD = 50;
 
 % gyro parameters
-HEADING_TOLERANCE = 2;
+HEADING_TOLERANCE = 5;
 TURN_ANGLE = 90;
-ANGLE_OVERSHOOT = 5;
+ANGLE_OVERSHOOT = 3;
 
 % color detection parameters
 COLOR_RED = 5;      % EV3 color code for red
@@ -111,6 +111,10 @@ while key ~= 'q'
         disp('>>> RED DETECTED! Stopping for 2 seconds then continuing...');
         brick.StopMotor([rightMotor leftMotor], 'Brake');
         pause(2);
+        disp('    Moving forward to clear the color...');
+        brick.MoveMotor(rightMotor, SPEED);
+        brick.MoveMotor(leftMotor, SPEED);
+        pause(0.2);  % Drive forward for 0.5 seconds
         disp('    Resuming navigation...');
 
     elseif detectedColor == COLOR_BLUE
@@ -203,7 +207,7 @@ while key ~= 'q'
         % Back up slightly
         brick.MoveMotor(rightMotor, -SPEED);
         brick.MoveMotor(leftMotor, -SPEED);
-        pause(0.5);
+        pause(0.7);
 
         % Stop
         brick.StopMotor([rightMotor leftMotor], 'Brake');
@@ -255,7 +259,7 @@ while key ~= 'q'
         disp('    Moving forward to clear corner...');
         brick.MoveMotor(rightMotor, SPEED);
         brick.MoveMotor(leftMotor, SPEED);
-        pause(1.2);  % Drive forward for 0.5 seconds
+        pause(1.1);  % Drive forward for 0.5 seconds
 
         % Stop
         brick.StopMotor([rightMotor leftMotor], 'Brake');

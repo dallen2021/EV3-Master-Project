@@ -3,7 +3,7 @@
 % authors: Daniel Allen, Nathan Alarcon, Thomas Stott, Ian Gallegos
 
 % sensor ports
-colorPort = 1;      % color sensor
+colorPort = 4;      % color sensor
 
 % motor ports
 rightMotor = 'A';
