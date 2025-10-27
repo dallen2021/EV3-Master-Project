@@ -1,12 +1,13 @@
 % mazeMapper_Gyro.m - gyro-assisted right-wall following with precise turns
-% hardware: gyro (port 2, backwards), touch (port C/3), distance (port 4), motors (A, C)
+% hardware: distance (port 1), gyro (port 2, backwards), touch (port C/3), color (port 4), motors (A, C)
 % press 'q' to stop
 % authors: Daniel Allen, Nathan Alarcon, Thomas Stott, Ian Gallegos
 
 % sensor ports
-gyroPort = 2;
-touchPort = 3;
-distancePort = 4;
+distancePort = 1;   % ultrasonic distance sensor (right wall)
+gyroPort = 2;       % gyro sensor (mounted backwards)
+touchPort = 3;      % touch sensor (front wall)
+colorPort = 4;      % color sensor (floor detection)
 
 % motor ports
 rightMotor = 'A';
@@ -24,9 +25,22 @@ HEADING_TOLERANCE = 2;
 TURN_ANGLE = 90;
 ANGLE_OVERSHOOT = 5;
 
+% color detection parameters
+COLOR_RED = 5;      % EV3 color code for red
+COLOR_BLUE = 2;     % EV3 color code for blue
+COLOR_GREEN = 3;    % EV3 color code for green
+
 % check brick is connected
 if ~exist('brick', 'var')
     error('Brick not connected! Please run connectEV3.m first.');
+end
+
+% initialize color sensor
+try
+    brick.SetColorMode(colorPort, 2);  % mode 2 = color detection
+    disp('Color sensor initialized.');
+catch ME
+    error('Could not initialize color sensor. Check connection.');
 end
 
 % initialize gyro sensor
@@ -75,6 +89,7 @@ while key ~= 'q'
     currentHeading = -brick.GyroAngle(gyroPort);  % negate because gyro is mounted backwards
     touchPressed = brick.TouchPressed(touchPort);
     rightWallDistance = brick.UltrasonicDist(distancePort);
+    detectedColor = brick.ColorCode(colorPort);  % read color
 
     % calculate heading error
     headingError = currentHeading - targetHeading;
@@ -88,11 +103,35 @@ while key ~= 'q'
     end
 
     % display status
-    disp(sprintf('Heading: %.1f° | Target: %.1f° | Error: %.1f° | Wall: %.1f cm | Touch: %d', ...
-                 currentHeading, targetHeading, headingError, rightWallDistance, touchPressed));
+    disp(sprintf('Heading: %.1f° | Target: %.1f° | Error: %.1f° | Wall: %.1f cm | Touch: %d | Color: %d', ...
+                 currentHeading, targetHeading, headingError, rightWallDistance, touchPressed, detectedColor));
 
-    % priority 1: front wall collision - make accurate 90° left turn
-    if touchPressed == 1
+    % priority 1: color detection - stop for specific colors
+    if detectedColor == COLOR_RED
+        disp('>>> RED DETECTED! Stopping for 1 second...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(1);
+
+    elseif detectedColor == COLOR_BLUE
+        disp('>>> BLUE DETECTED! Stopping and beeping 2 times...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        brick.beep();
+        pause(0.5);
+        brick.beep();
+        pause(0.5);
+
+    elseif detectedColor == COLOR_GREEN
+        disp('>>> GREEN DETECTED! Stopping and beeping 3 times...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        brick.beep();
+        pause(0.5);
+        brick.beep();
+        pause(0.5);
+        brick.beep();
+        pause(0.5);
+
+    % priority 2: front wall collision - make accurate 90° left turn
+    elseif touchPressed == 1
         disp('>>> FRONT WALL! Executing precise 90° LEFT turn with gyro...');
         brick.beep();
 
@@ -146,7 +185,7 @@ while key ~= 'q'
 
         disp(sprintf('    Turn complete! New heading: %.1f°', -brick.GyroAngle(gyroPort)));
 
-    % no wall detected - make precise 90° right turn to go down pathway
+    % priority 3: no wall detected - make precise 90° right turn to go down pathway
     elseif rightWallDistance > NO_WALL_THRESHOLD
         disp(sprintf('>>> NO WALL DETECTED (%.1f cm) - Executing 90° RIGHT turn...', rightWallDistance));
         brick.beep();
@@ -208,10 +247,9 @@ while key ~= 'q'
         brick.StopMotor([rightMotor leftMotor], 'Brake');
         pause(0.2);
 
-    % gyro-assisted wall following
+    % priority 4: gyro-assisted wall following
     else
-        % first priority: maintain correct heading
-        % second priority: adjust for wall distance
+        % maintain correct heading, then adjust for wall distance
 
         % determine wall correction needed
         wallError = rightWallDistance - TARGET_WALL_DISTANCE;
