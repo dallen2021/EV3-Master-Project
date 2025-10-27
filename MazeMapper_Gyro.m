@@ -108,27 +108,88 @@ while key ~= 'q'
 
     % priority 1: color detection - stop for specific colors
     if detectedColor == COLOR_RED
-        disp('>>> RED DETECTED! Stopping for 1 second...');
+        disp('>>> RED DETECTED! Stopping for 2 seconds then continuing...');
         brick.StopMotor([rightMotor leftMotor], 'Brake');
-        pause(1);
+        pause(2);
+        disp('    Resuming navigation...');
 
     elseif detectedColor == COLOR_BLUE
-        disp('>>> BLUE DETECTED! Stopping and beeping 2 times...');
+        disp('>>> BLUE DETECTED! Stopping for 2 seconds then turning 180°...');
         brick.StopMotor([rightMotor leftMotor], 'Brake');
-        brick.beep();
-        pause(0.5);
-        brick.beep();
-        pause(0.5);
+        pause(2);
+
+        % update target heading (turn 180 degrees)
+        targetHeading = targetHeading + 180;
+
+        % execute gyro-controlled 180° turn
+        disp(sprintf('    Turning 180° from %.1f° to %.1f°...', currentHeading, targetHeading));
+
+        turnTarget = targetHeading;
+
+        while key ~= 'q'
+            currentHeading = -brick.GyroAngle(gyroPort);
+            headingError = currentHeading - turnTarget;
+
+            % normalize error
+            while headingError > 180
+                headingError = headingError - 360;
+            end
+            while headingError < -180
+                headingError = headingError + 360;
+            end
+
+            if abs(headingError) <= 3  % close enough to target
+                break;
+            end
+
+            % turn left (right motor forward, left motor backward)
+            brick.MoveMotor(rightMotor, TURN_SPEED);
+            brick.MoveMotor(leftMotor, -TURN_SPEED);
+            pause(0.02);
+        end
+
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.3);
+        disp(sprintf('    Turn complete! New heading: %.1f°', -brick.GyroAngle(gyroPort)));
 
     elseif detectedColor == COLOR_GREEN
-        disp('>>> GREEN DETECTED! Stopping and beeping 3 times...');
+        disp('>>> GREEN DETECTED! Stopping for 2 seconds then turning 180°...');
         brick.StopMotor([rightMotor leftMotor], 'Brake');
-        brick.beep();
-        pause(0.5);
-        brick.beep();
-        pause(0.5);
-        brick.beep();
-        pause(0.5);
+        pause(2);
+
+        % update target heading (turn 180 degrees)
+        targetHeading = targetHeading + 180;
+
+        % execute gyro-controlled 180° turn
+        disp(sprintf('    Turning 180° from %.1f° to %.1f°...', currentHeading, targetHeading));
+
+        turnTarget = targetHeading;
+
+        while key ~= 'q'
+            currentHeading = -brick.GyroAngle(gyroPort);
+            headingError = currentHeading - turnTarget;
+
+            % normalize error
+            while headingError > 180
+                headingError = headingError - 360;
+            end
+            while headingError < -180
+                headingError = headingError + 360;
+            end
+
+            if abs(headingError) <= 3  % close enough to target
+                break;
+            end
+
+            % turn left (right motor forward, left motor backward)
+            brick.MoveMotor(rightMotor, TURN_SPEED);
+            brick.MoveMotor(leftMotor, -TURN_SPEED);
+            pause(0.02);
+        end
+
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.3);
+        disp(sprintf('    Turn complete! New heading: %.1f°', -brick.GyroAngle(gyroPort)));
 
     % priority 2: front wall collision - make accurate 90° left turn
     elseif touchPressed == 1
