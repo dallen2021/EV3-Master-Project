@@ -1,5 +1,5 @@
 % mazeMapper_Gyro.m - gyro-assisted right-wall following with precise turns
-% hardware: distance (port 1), gyro (port 2, backwards), touch (port C/3), color (port 4), motors (A, C)
+% hardware: distance (port 1), gyro (port 2, backwards), touch (port C/3), color (port 4), motors (A, C, D)
 % press 'q' to stop
 % authors: Daniel Allen, Nathan Alarcon, Thomas Stott, Ian Gallegos
 
@@ -12,6 +12,7 @@ colorPort = 4;      % color sensor (floor detection)
 % motor ports
 rightMotor = 'A';
 leftMotor = 'C';
+flipperMotor = 'D';  % medium motor for flipper
 
 % navigation parameters
 SPEED = 50;
@@ -50,6 +51,16 @@ try
     disp('Gyro sensor calibrated.');
 catch ME
     error('Could not initialize gyro sensor. Check connection.');
+end
+
+% initialize flipper motor - rotate 45 degrees clockwise
+try
+    disp('Positioning flipper motor...');
+    brick.MoveMotorAngleRel(flipperMotor, 50, 45, 'Brake');
+    pause(0.5);
+    disp('Flipper motor positioned at 45 degrees.');
+catch ME
+    error('Could not initialize flipper motor. Check connection.');
 end
 
 % initialize keyboard for exit
@@ -295,7 +306,7 @@ while key ~= 'q'
 
         % Back up slightly (gyro-controlled to stay straight)
         backupStartTime = tic;
-        while toc(backupStartTime) < 0.7
+        while toc(backupStartTime) < 1.2
             currentHeading = -brick.GyroAngle(gyroPort);
             headingError = currentHeading - targetHeading;
 
