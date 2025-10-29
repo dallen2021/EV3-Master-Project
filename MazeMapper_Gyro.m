@@ -30,6 +30,7 @@ ANGLE_OVERSHOOT = 2;
 COLOR_RED = 5;      % EV3 color code for red
 COLOR_BLUE = 2;     % EV3 color code for blue
 COLOR_GREEN = 3;    % EV3 color code for green
+COLOR_YELLOW = 4;   % EV3 color code for yellow
 
 % check brick is connected
 if ~exist('brick', 'var')
@@ -155,7 +156,7 @@ while key ~= 'q'
         pause(0.2);
         disp('    Resuming navigation...');
 
-    elseif detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN
+    elseif detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN || detectedColor == COLOR_YELLOW
         disp('>>> COLOR DETECTED! Entering manual control mode...');
         disp('    Controls: W=forward, S=backward, A=turn left, D=turn right');
         disp('    Up Arrow=flipper up, Down Arrow=flipper down');
