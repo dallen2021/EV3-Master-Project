@@ -154,10 +154,10 @@ while key ~= 'q'
                 brick.MoveMotor(leftMotor, TURN_SPEED);
 
             % flipper controls (arrow keys return numeric codes)
-            elseif isequal(key, 'uparrow') || key == 30
+            elseif (ischar(key) && strcmp(key, 'uparrow')) || (isnumeric(key) && key == 30)
                 % flipper up (counterclockwise)
                 brick.MoveMotorAngleRel(flipperMotor, 50, -10, 'Brake');
-            elseif isequal(key, 'downarrow') || key == 31
+            elseif (ischar(key) && strcmp(key, 'downarrow')) || (isnumeric(key) && key == 31)
                 % flipper down (clockwise)
                 brick.MoveMotorAngleRel(flipperMotor, 50, 10, 'Brake');
 
