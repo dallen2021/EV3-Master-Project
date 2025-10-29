@@ -32,6 +32,11 @@ COLOR_BLUE = 2;     % EV3 color code for blue
 COLOR_GREEN = 3;    % EV3 color code for green
 COLOR_YELLOW = 4;   % EV3 color code for yellow
 
+% mission color assignments - configure these for your mission
+START_END_COLOR = COLOR_GREEN;    % where car starts and ends
+PICKUP_COLOR = COLOR_BLUE;        % pickup location (enters manual control)
+DROP_OFF_COLOR = COLOR_YELLOW;    % drop-off location (180 turn, lower flipper)
+
 % check brick is connected
 if ~exist('brick', 'var')
     error('Brick not connected! Please run connectEV3.m first.');
@@ -92,7 +97,22 @@ pause(0.5);
 % track target heading (changes by 90° with each turn)
 targetHeading = 0;
 
+% navigation state machine
+% 1 = navigating to pickup
+% 2 = navigating to drop-off (after pickup)
+% 3 = navigating back to start/end (after drop-off)
+% 4 = mission complete
+navigationState = 1;
+
+disp('========================================');
+disp('MISSION CONFIGURATION');
+disp('========================================');
+disp(sprintf('Start/End Color: %d', START_END_COLOR));
+disp(sprintf('Pickup Color: %d', PICKUP_COLOR));
+disp(sprintf('Drop-off Color: %d', DROP_OFF_COLOR));
+disp('========================================');
 disp('Starting autonomous navigation...');
+disp('State 1: Navigating to PICKUP location...');
 
 while key ~= 'q'
     pause(0.05);
@@ -118,46 +138,10 @@ while key ~= 'q'
     disp(sprintf('Heading: %.1f° | Target: %.1f° | Error: %.1f° | Wall: %.1f cm | Touch: %d | Color: %d', ...
                  currentHeading, targetHeading, headingError, rightWallDistance, touchPressed, detectedColor));
 
-    % priority 1: color detection - red stops and goes, blue/green enter manual control
-    if detectedColor == COLOR_RED
-        disp('>>> RED DETECTED! Stopping for 2 seconds then continuing...');
-        brick.StopMotor([rightMotor leftMotor], 'Brake');
-        pause(2);
-
-        % move forward to clear the color with gyro control
-        disp('    Moving forward to clear the color...');
-        forwardStartTime = tic;
-        while toc(forwardStartTime) < 0.5  % 0.5 seconds forward
-            currentHeading = -brick.GyroAngle(gyroPort);
-            headingError = currentHeading - targetHeading;
-
-            % normalize error
-            while headingError > 180
-                headingError = headingError - 360;
-            end
-            while headingError < -180
-                headingError = headingError + 360;
-            end
-
-            % correct heading while moving forward
-            if headingError > 2
-                brick.MoveMotor(rightMotor, SPEED * 0.7);
-                brick.MoveMotor(leftMotor, SPEED);
-            elseif headingError < -2
-                brick.MoveMotor(rightMotor, SPEED);
-                brick.MoveMotor(leftMotor, SPEED * 0.7);
-            else
-                brick.MoveMotor(rightMotor, SPEED);
-                brick.MoveMotor(leftMotor, SPEED);
-            end
-            pause(0.02);
-        end
-        brick.StopMotor([rightMotor leftMotor], 'Brake');
-        pause(0.2);
-        disp('    Resuming navigation...');
-
-    elseif detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN || detectedColor == COLOR_YELLOW
-        disp('>>> COLOR DETECTED! Entering manual control mode...');
+    % priority 1: state-based color detection
+    if navigationState == 1 && detectedColor == PICKUP_COLOR
+        % reached pickup location - enter manual control
+        disp('>>> PICKUP COLOR DETECTED! Entering manual control mode...');
         disp('    Controls: W=forward, S=backward, A=turn left, D=turn right');
         disp('    Up Arrow=flipper up, Down Arrow=flipper down');
         disp('    Press R to resume autonomous navigation');
@@ -177,33 +161,31 @@ while key ~= 'q'
                 brick.GyroCalibrate(gyroPort);
                 pause(0.5);
                 targetHeading = 0;  % reset target heading
+
+                % advance to next state
+                navigationState = 2;
                 disp('    Gyro reinitialized. Resuming...');
+                disp('State 2: Navigating to DROP-OFF location...');
                 break;
 
             % movement controls
             elseif key == 'w'
-                % forward
                 brick.MoveMotor(rightMotor, SPEED);
                 brick.MoveMotor(leftMotor, SPEED);
             elseif key == 's'
-                % backward
                 brick.MoveMotor(rightMotor, -SPEED);
                 brick.MoveMotor(leftMotor, -SPEED);
             elseif key == 'a'
-                % turn left (right motor forward, left motor backward)
                 brick.MoveMotor(rightMotor, TURN_SPEED);
                 brick.MoveMotor(leftMotor, -TURN_SPEED);
             elseif key == 'd'
-                % turn right (left motor forward, right motor backward)
                 brick.MoveMotor(rightMotor, -TURN_SPEED);
                 brick.MoveMotor(leftMotor, TURN_SPEED);
 
-            % flipper controls (arrow keys return numeric codes)
+            % flipper controls
             elseif (ischar(key) && strcmp(key, 'uparrow')) || (isnumeric(key) && key == 30)
-                % flipper up (counterclockwise) - continuous movement
                 brick.MoveMotor(flipperMotor, -30);
             elseif (ischar(key) && strcmp(key, 'downarrow')) || (isnumeric(key) && key == 31)
-                % flipper down (clockwise) - continuous movement
                 brick.MoveMotor(flipperMotor, 30);
 
             % no key pressed - stop all motors
@@ -211,6 +193,60 @@ while key ~= 'q'
                 brick.StopMotor([rightMotor leftMotor flipperMotor], 'Brake');
             end
         end
+
+    elseif navigationState == 2 && detectedColor == DROP_OFF_COLOR
+        % reached drop-off location - do 180 turn and lower flipper
+        disp('>>> DROP-OFF COLOR DETECTED! Executing drop-off sequence...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.5);
+
+        % execute 180 degree turn
+        disp('    Turning 180 degrees...');
+        targetHeading = targetHeading + 180;
+        turnTarget = targetHeading;
+
+        while key ~= 'q'
+            currentHeading = -brick.GyroAngle(gyroPort);
+            headingError = currentHeading - turnTarget;
+
+            % normalize error
+            while headingError > 180
+                headingError = headingError - 360;
+            end
+            while headingError < -180
+                headingError = headingError + 360;
+            end
+
+            if abs(headingError) <= 3
+                break;
+            end
+
+            % turn left
+            brick.MoveMotor(rightMotor, TURN_SPEED);
+            brick.MoveMotor(leftMotor, -TURN_SPEED);
+            pause(0.02);
+        end
+
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.3);
+        disp(sprintf('    Turn complete! New heading: %.1f°', -brick.GyroAngle(gyroPort)));
+
+        % lower flipper
+        disp('    Lowering flipper...');
+        brick.MoveMotorAngleRel(flipperMotor, 50, 45, 'Brake');
+        pause(0.5);
+        disp('    Flipper lowered.');
+
+        % advance to next state
+        navigationState = 3;
+        disp('State 3: Navigating back to START/END location...');
+
+    elseif navigationState == 3 && detectedColor == START_END_COLOR
+        % reached start/end location - mission complete
+        disp('>>> START/END COLOR DETECTED! Mission complete!');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        navigationState = 4;
+        break;
 
     % priority 2: front wall collision - make accurate 90° left turn
     elseif touchPressed == 1
