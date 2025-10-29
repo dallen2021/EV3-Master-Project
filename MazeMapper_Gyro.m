@@ -541,7 +541,10 @@ while key ~= 'q'
 
 end
 
-% cleanup - stop motors and close keyboard
+% cleanup - reset flipper and stop motors
+disp('Resetting flipper motor...');
+brick.MoveMotorAngleRel(flipperMotor, 50, 45, 'Coast');  % return to original position
+pause(0.5);
 brick.StopMotor([rightMotor leftMotor], 'Coast');
 CloseKeyboard();
 disp('========================================');
