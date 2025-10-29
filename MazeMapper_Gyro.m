@@ -417,6 +417,7 @@ end
 disp('Resetting flipper motor...');
 brick.MoveMotorAngleRel(flipperMotor, 50, 45, 'Coast');  % return to original position
 pause(0.5);
+brick.StopMotor(flipperMotor, 'Coast');  % ensure flipper can move freely
 brick.StopMotor([rightMotor leftMotor], 'Coast');
 CloseKeyboard();
 disp('========================================');
