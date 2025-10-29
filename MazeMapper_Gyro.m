@@ -138,8 +138,46 @@ while key ~= 'q'
     disp(sprintf('Heading: %.1f° | Target: %.1f° | Error: %.1f° | Wall: %.1f cm | Touch: %d | Color: %d', ...
                  currentHeading, targetHeading, headingError, rightWallDistance, touchPressed, detectedColor));
 
-    % priority 1: state-based color detection
-    if navigationState == 1 && detectedColor == PICKUP_COLOR
+    % priority 1: red always stops and goes (universal checkpoint)
+    if detectedColor == COLOR_RED
+        disp('>>> RED DETECTED! Stopping for 2 seconds then continuing...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(2);
+
+        % move forward to clear the color with gyro control
+        disp('    Moving forward to clear the color...');
+        forwardStartTime = tic;
+        while toc(forwardStartTime) < 0.5  % 0.5 seconds forward
+            currentHeading = -brick.GyroAngle(gyroPort);
+            headingError = currentHeading - targetHeading;
+
+            % normalize error
+            while headingError > 180
+                headingError = headingError - 360;
+            end
+            while headingError < -180
+                headingError = headingError + 360;
+            end
+
+            % correct heading while moving forward
+            if headingError > 2
+                brick.MoveMotor(rightMotor, SPEED * 0.7);
+                brick.MoveMotor(leftMotor, SPEED);
+            elseif headingError < -2
+                brick.MoveMotor(rightMotor, SPEED);
+                brick.MoveMotor(leftMotor, SPEED * 0.7);
+            else
+                brick.MoveMotor(rightMotor, SPEED);
+                brick.MoveMotor(leftMotor, SPEED);
+            end
+            pause(0.02);
+        end
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.2);
+        disp('    Resuming navigation...');
+
+    % priority 2: state-based color detection
+    elseif navigationState == 1 && detectedColor == PICKUP_COLOR
         % reached pickup location - enter manual control
         disp('>>> PICKUP COLOR DETECTED! Entering manual control mode...');
         disp('    Controls: W=forward, S=backward, A=turn left, D=turn right');
@@ -248,7 +286,7 @@ while key ~= 'q'
         navigationState = 4;
         break;
 
-    % priority 2: front wall collision - make accurate 90° left turn
+    % priority 3: front wall collision - make accurate 90° left turn
     elseif touchPressed == 1
         disp('>>> FRONT WALL! Executing precise 90° LEFT turn with gyro...');
         brick.beep();
@@ -326,7 +364,7 @@ while key ~= 'q'
 
         disp(sprintf('    Turn complete! New heading: %.1f°', -brick.GyroAngle(gyroPort)));
 
-    % priority 3: no wall detected - make precise 90° right turn to go down pathway
+    % priority 4: no wall detected - make precise 90° right turn to go down pathway
     elseif rightWallDistance > NO_WALL_THRESHOLD
         disp(sprintf('>>> NO WALL DETECTED (%.1f cm) - Executing 90° RIGHT turn...', rightWallDistance));
         brick.beep();
@@ -448,7 +486,7 @@ while key ~= 'q'
         brick.StopMotor([rightMotor leftMotor], 'Brake');
         pause(0.2);
 
-    % priority 4: gyro-assisted wall following
+    % priority 5: gyro-assisted wall following
     else
         % maintain correct heading, then adjust for wall distance
 
