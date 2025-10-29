@@ -117,8 +117,45 @@ while key ~= 'q'
     disp(sprintf('Heading: %.1f° | Target: %.1f° | Error: %.1f° | Wall: %.1f cm | Touch: %d | Color: %d', ...
                  currentHeading, targetHeading, headingError, rightWallDistance, touchPressed, detectedColor));
 
-    % priority 1: color detection - enter manual control mode
-    if detectedColor == COLOR_RED || detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN
+    % priority 1: color detection - red stops and goes, blue/green enter manual control
+    if detectedColor == COLOR_RED
+        disp('>>> RED DETECTED! Stopping for 2 seconds then continuing...');
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(2);
+
+        % move forward to clear the color with gyro control
+        disp('    Moving forward to clear the color...');
+        forwardStartTime = tic;
+        while toc(forwardStartTime) < 0.5  % 0.5 seconds forward
+            currentHeading = -brick.GyroAngle(gyroPort);
+            headingError = currentHeading - targetHeading;
+
+            % normalize error
+            while headingError > 180
+                headingError = headingError - 360;
+            end
+            while headingError < -180
+                headingError = headingError + 360;
+            end
+
+            % correct heading while moving forward
+            if headingError > 2
+                brick.MoveMotor(rightMotor, SPEED * 0.7);
+                brick.MoveMotor(leftMotor, SPEED);
+            elseif headingError < -2
+                brick.MoveMotor(rightMotor, SPEED);
+                brick.MoveMotor(leftMotor, SPEED * 0.7);
+            else
+                brick.MoveMotor(rightMotor, SPEED);
+                brick.MoveMotor(leftMotor, SPEED);
+            end
+            pause(0.02);
+        end
+        brick.StopMotor([rightMotor leftMotor], 'Brake');
+        pause(0.2);
+        disp('    Resuming navigation...');
+
+    elseif detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN
         disp('>>> COLOR DETECTED! Entering manual control mode...');
         disp('    Controls: W=forward, S=backward, A=turn left, D=turn right');
         disp('    Up Arrow=flipper up, Down Arrow=flipper down');
@@ -133,6 +170,13 @@ while key ~= 'q'
             if key == 'r'
                 disp('>>> Resuming autonomous navigation...');
                 brick.StopMotor([rightMotor leftMotor], 'Brake');
+
+                % reinitialize gyro angle
+                disp('    Reinitializing gyro...');
+                brick.GyroCalibrate(gyroPort);
+                pause(0.5);
+                targetHeading = 0;  % reset target heading
+                disp('    Gyro reinitialized. Resuming...');
                 break;
 
             % movement controls
