@@ -53,12 +53,12 @@ catch ME
     error('Could not initialize gyro sensor. Check connection.');
 end
 
-% initialize flipper motor - rotate 45 degrees clockwise
+% initialize flipper motor - rotate 45 degrees counterclockwise
 try
     disp('Positioning flipper motor...');
-    brick.MoveMotorAngleRel(flipperMotor, 50, 45, 'Brake');
+    brick.MoveMotorAngleRel(flipperMotor, 50, -45, 'Brake');
     pause(0.5);
-    disp('Flipper motor positioned at 45 degrees.');
+    disp('Flipper motor positioned at -45 degrees.');
 catch ME
     error('Could not initialize flipper motor. Check connection.');
 end
