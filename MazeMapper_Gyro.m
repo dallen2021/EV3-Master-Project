@@ -15,15 +15,15 @@ leftMotor = 'C';
 
 % navigation parameters
 SPEED = 50;
-TURN_SPEED = 40;
-TARGET_WALL_DISTANCE = 20;
+TURN_SPEED = 30;
+TARGET_WALL_DISTANCE = 25;
 WALL_TOLERANCE = 5;
 NO_WALL_THRESHOLD = 50;
 
 % gyro parameters
 HEADING_TOLERANCE = 1;  % reduced from 5 for tighter control
 TURN_ANGLE = 90;
-ANGLE_OVERSHOOT = 3;
+ANGLE_OVERSHOOT = 2;
 
 % color detection parameters
 COLOR_RED = 5;      % EV3 color code for red
@@ -373,6 +373,13 @@ while key ~= 'q'
         while toc(forwardStartTime) < 1.1
             currentHeading = -brick.GyroAngle(gyroPort);
             headingError = currentHeading - targetHeading;
+            detectedColor = brick.ColorCode(colorPort);  % check for colors during movement
+
+            % stop if color detected
+            if detectedColor == COLOR_RED || detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN
+                disp('    Color detected during corner clearing - stopping early');
+                break;
+            end
 
             % normalize error
             while headingError > 180
@@ -440,9 +447,16 @@ while key ~= 'q'
         % Move forward briefly after turning to clear the opening (gyro-controlled)
         disp('    Moving forward to enter new pathway...');
         forwardStartTime = tic;
-        while toc(forwardStartTime) < 2.5
+        while toc(forwardStartTime) < 3.5
             currentHeading = -brick.GyroAngle(gyroPort);
             headingError = currentHeading - targetHeading;
+            detectedColor = brick.ColorCode(colorPort);  % check for colors during movement
+
+            % stop if color detected
+            if detectedColor == COLOR_RED || detectedColor == COLOR_BLUE || detectedColor == COLOR_GREEN
+                disp('    Color detected during pathway entry - stopping early');
+                break;
+            end
 
             % normalize error
             while headingError > 180
@@ -483,13 +497,13 @@ while key ~= 'q'
             if headingError > 0
                 % drifting left (positive angle) - turn right (slow down right motor)
                 disp(sprintf('  GYRO CORRECT >> (heading %.1f°) - slowing RIGHT motor', headingError));
-                brick.MoveMotor(rightMotor, SPEED * 0.6);  % more aggressive correction
+                brick.MoveMotor(rightMotor, SPEED * 0.7);  % more aggressive correction
                 brick.MoveMotor(leftMotor, SPEED);
             else
                 % drifting right (negative angle) - turn left (slow down left motor)
                 disp(sprintf('  GYRO CORRECT << (heading %.1f°) - slowing LEFT motor', headingError));
                 brick.MoveMotor(rightMotor, SPEED);
-                brick.MoveMotor(leftMotor, SPEED * 0.6);  % more aggressive correction
+                brick.MoveMotor(leftMotor, SPEED * 0.7);  % more aggressive correction
             end
 
         elseif abs(wallError) > WALL_TOLERANCE
